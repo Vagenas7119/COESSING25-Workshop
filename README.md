@@ -2,6 +2,8 @@
 **Author**: Georgios Vagenas (MNCN, CSIC)| Predoctoral Investigador 
 **Project**: COESSING25 
 
+![Screenshot 2025-08-05 190504](https://github.com/user-attachments/assets/b484e54e-13d4-4e17-9b9c-51cdd53c0a0b)
+
 ## 📌 Overview  
 This repository contains an R workflow for analyzing ecological data, estimating biomass using the BioTIME and FishBase database, and visualizing spatiotemporal patterns in species richness. The pipeline processes occurrence records, computes ecological metrics, and generates animated maps of biodiversity changes.
 

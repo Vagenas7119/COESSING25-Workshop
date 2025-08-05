@@ -1,14 +1,16 @@
 # Fisheries - Ecological & Spatial Data Analysis Lab  
-**Author**: Georgios Vagenas  
+**Author**: Georgios Vagenas (MNCN, CSIC)| Predoctoral Investigador 
 **Project**: COESSING25 
 
 ## 📌 Overview  
-This repository contains an R workflow for analyzing marine biodiversity data, estimating biomass using FishBase parameters, and visualizing spatiotemporal patterns in species richness. The pipeline processes occurrence records, computes ecological metrics, and generates animated maps of biodiversity changes.
+This repository contains an R workflow for analyzing ecological data, estimating biomass using the BioTIME and FishBase database, and visualizing spatiotemporal patterns in species richness. The pipeline processes occurrence records, computes ecological metrics, and generates animated maps of biodiversity changes.
+
+Link to download the layers: https://saco.csic.es/s/ZdE9mHqrYBTfs5F
 
 ## 0. Setup Working Environment
 ```r
 # Set working directory
-setwd("C:/Users/geo_v/Desktop/COESSING_Ghana_2025/Project/")
+setwd("C:/Users/XXX/Desktop/COESSING25_Lab_Files/")
 
 # Install required packages
 install.packages(c("terra", "mapview", "dplyr", "ggplot2", "rfishbase", 

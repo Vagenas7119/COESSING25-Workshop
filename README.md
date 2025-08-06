@@ -140,4 +140,4 @@ writeRaster(r_stack, "annual_richness_raster_stack.tif")
 write.csv(all_stats, "species_summary_stats.csv")
 write.csv(weight_estimates, "biomass_estimates.csv")
 ```
-![species_richness_animation](https://github.com/user-attachments/assets/96d838bc-6af9-408b-8064-281bf38968f4)
+![species_richness_animation](https://github.com/user-attachments/assets/98516d95-860c-4473-a084-7cf412f23343)

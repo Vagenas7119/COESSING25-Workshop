@@ -1,6 +1,9 @@
 # Fisheries - Ecological & Spatial Data Analysis Lab  
+
 **Author**: Georgios Vagenas (MNCN, CSIC) | Predoctoral Investigador & PhD(c) at the National Spanish Research Council (CSIC) 
+
 **Project**: COESSING25
+
 **Location**: University of Accra, Ghana (West Africa), August 2025 - Ecological Data Analysis Workshop
 
 

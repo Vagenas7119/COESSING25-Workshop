@@ -47,7 +47,12 @@ points <- vect(md_coords, geom = c("LONGITUDE", "LATITUDE"), crs = "EPSG:4326")
 
 # Load oceanographic data
 nc_file_pp <- rast("layers/phyc_baseline_2000_2020_depthsurf_7d39_02af_cdbd_U1751549420494.nc")
+plot(nc_file_pp)
 ```
+
+![working_region](https://github.com/user-attachments/assets/e1de0af5-727d-452f-ba93-a65ecfc19130)
+
+
 ## 2. Descriptive statistics
 ```r
 # Calculate species abundance

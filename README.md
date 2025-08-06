@@ -1,9 +1,11 @@
 # Fisheries - Ecological & Spatial Data Analysis Lab  
-**Author**: Georgios Vagenas (MNCN, CSIC)| Predoctoral Investigador 
-**Project**: COESSING25 
+**Author**: Georgios Vagenas (MNCN, CSIC) | Predoctoral Investigador & PhD(c) at the National Spanish Research Council (CSIC) 
+**Project**: COESSING25
+**Location**: University of Accra, Ghana (West Africa), August 2025 - Ecological Data Analysis Workshop
+
 
 ## 📌 Overview  
-This repository contains an R workflow for analyzing ecological data, estimating biomass using the BioTIME and FishBase database, and visualizing spatiotemporal patterns in species richness. The pipeline processes occurrence records, computes ecological metrics, and generates animated maps of biodiversity changes.
+This repository contains an R workflow for analyzing ecological data, estimating biomass using the BioTIME and FishBase database, and visualizing spatiotemporal patterns in species richness across the globe. The pipeline processes occurrence records, computes ecological metrics, and generates animated maps of biodiversity changes.
 
 Link to download the layers: https://saco.csic.es/s/ZdE9mHqrYBTfs5F
 

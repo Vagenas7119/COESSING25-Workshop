@@ -1,0 +1,542 @@
+#FISHERIES - ECOLOGICAL & SPATIAL DATA ANALYSIS LAB :: GEORGIOS VAGENAS (georgios.vagenas@mncn.csic.es) :: COESSING25
+
+#Points database :: https://biotime.st-andrews.ac.uk/selectStudy.php?study=466
+
+#Oceanographic data :: https://www.bio-oracle.org
+
+#### Chapter 0. Set the working directory and the libraries ####
+
+#Libraries install
+
+#install.packages("terra")
+#install.packages("mapview")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("rfishbase")
+#install.packages("ncdf4")
+#install.packages("gganimate")
+#install.packages(c("rnaturalearth", "rnaturalearthdata", "sf"))
+#install.packages("tidyr")
+#install.packages("vegan")
+
+#Call libraries
+library(terra)
+library(mapview)
+library(dplyr)
+library(rfishbase)
+library(dplyr)
+library(ggplot2)
+library(ncdf4)
+library(gganimate)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+library(tidyr)
+library(vegan)
+
+
+#Set working directory
+setwd("C:/Users/geo_v/Desktop/COESSING_Ghana_2025/Project/")
+
+#Call the dataset | Marine dataset | Explore the dataset a bit
+md<-read.csv("raw_data_466_UK_Fish.csv") #UK ##SOS FOR LARGE SCALE SPATIAL
+
+
+#Additional datasets
+#md<-read.csv("raw_data_180.csv") # US, CANADA
+#md<-read.csv("raw_data_292.csv") # Australia
+#md<-read.csv("raw_data_126.csv") #US
+#md<-read.csv("raw_data_76.csv") #Baltic Sea, Invertebrates
+#md<-read.csv("raw_data_178.csv") #North Pole Canada, Invertebrates
+#md<-read.csv("raw_data_467.csv") #Espana North
+#md<-read.csv("raw_data_692.csv") #Seycheles Reef #SOS FOR LOW SCALE SPATIAL
+str(md)
+
+md_coords<-data.frame(LATITUDE=md$LATITUDE,LONGITUDE=md$LONGITUDE)
+
+# Convert data.frame to SpatVector (points)
+points <- vect(md_coords, geom = c("LONGITUDE", "LATITUDE"), crs = "EPSG:4326")
+
+# Plot the points (static map)
+#plot(points, col = "red", pch = 16, main = "Occurrences")
+
+#set the template raster #FOR COESSING25
+nc_file_pp<-rast("ocean_layer_cropped.tiff")
+plot(nc_file_pp)
+
+#nc_file_pp<-rast("layers/phyc_baseline_2000_2020_depthsurf_7d39_02af_cdbd_U1751549420494.nc")
+#plot(nc_file_pp)
+
+# Get the extent of 'points' (assuming it's a SpatVector, sf, or bbox)
+ext_poly <- ext(points)  # Get extent
+
+# Draw a red rectangle around the extent
+rect(
+  xleft = ext_poly[1],   # xmin
+  ybottom = ext_poly[3], # ymin
+  xright = ext_poly[2],  # xmax
+  ytop = ext_poly[4],   # ymax
+  border = "red",        # Red border
+  lwd = 2,              # Line width
+  lty = 1               # Solid line
+)
+
+nc_file_pp<-crop(nc_file_pp,ext(points))
+plot(nc_file_pp)
+
+plot(points[1000:2000],add=TRUE,col="red")
+
+#Visualiaze it with mapview
+#mapview(points)
+
+
+
+#### Chapter 1. Descriptive statistics ####
+
+#how many species we do have - provide me the stats of the abundace of the species
+
+species_list<-md$valid_name
+length(unique(species_list)) #number of unique species included
+head(table(species_list),10) #Check the number of records per species
+
+# Step 1: Calculate total abundance per species
+species_totals <- aggregate(ABUNDANCE ~ valid_name, data = md, FUN = sum)
+
+# Step 2: Sort in descending order
+all_species <- species_totals[order(-species_totals$ABUNDANCE), ]
+head(all_species,10) #sort the top 10
+
+# Step 3: Get summary statistics
+results <- lapply(all_species$valid_name, function(species) {
+  subset_data <- md[md$valid_name == species, ]
+  data.frame(
+    Species = species,
+    Total_Abundance = sum(subset_data$ABUNDANCE),
+    Mean = mean(subset_data$ABUNDANCE),
+    Median = median(subset_data$ABUNDANCE),
+    SD = sd(subset_data$ABUNDANCE),
+    Min = min(subset_data$ABUNDANCE),
+    Max = max(subset_data$ABUNDANCE),
+    N_Samples = nrow(subset_data)
+  )
+})
+
+
+# Combine into a single data frame
+all_stats <- do.call(rbind, results)
+head(all_stats,10)
+
+
+#### Chapter 2. Abundance to Lmax to Wmax to Biomass Conversion - FishBase ####
+
+#How to get the mean biomass of these species --> Mean Weight from Fish base
+
+# Get FishBase data for your species list
+species_list <- all_stats$Species
+head(species_list,10)
+
+# Get mean weight (in grams) from FishBase
+weight_data <- popchar(species_list)
+str(weight_data)
+
+# Get mean Lmax for each species
+length_data <- weight_data %>%
+  mutate(Lmax = as.numeric(Lmax)) %>%
+  group_by(Species) %>%
+  summarise(
+    Mean_Lmax_cm = mean(Lmax, na.rm = TRUE),
+    n_records = sum(!is.na(Lmax))
+  ) %>%
+  filter(Species %in% species_list & !is.na(Mean_Lmax_cm))
+
+head(length_data,10)
+
+# Get length-weight parameters (W = a × L^b)
+lw_params <- length_weight(species_list) %>%
+  select(Species, a, b) %>%
+  mutate(
+    a = as.numeric(a),
+    b = as.numeric(b)
+  ) %>%
+  group_by(Species) %>%
+  summarise(
+    a_mean = mean(a, na.rm = TRUE),
+    b_mean = mean(b, na.rm = TRUE)
+  )
+
+head(lw_params,10)
+
+#What is the Length Weight relationship?
+
+# Combine and calculate
+weight_estimates <- length_data %>%
+  left_join(lw_params, by = "Species") %>%
+  mutate(
+    Estimated_Wmax_g = a_mean * (Mean_Lmax_cm ^ b_mean),
+    Estimated_Wmax_kg = Estimated_Wmax_g / 1000
+  ) %>%
+  select(Species, Mean_Lmax_cm, Estimated_Wmax_g, Estimated_Wmax_kg)
+
+# View results
+head(weight_estimates,10)
+head(all_stats,10)
+
+# Match species and multiply weights by abundances in one line
+weight_estimates$landings_estimates <- weight_estimates$Estimated_Wmax_kg * 
+  all_stats$Total_Abundance[match(weight_estimates$Species, all_stats$Species)]
+
+# View the results for the maximum weights
+total_maxweight_per_species<-weight_estimates[order(-weight_estimates$landings_estimates), ]
+head(total_maxweight_per_species,10)
+
+#Main exercises
+
+#Datasets use
+
+str(md)
+str(weight_estimates)
+
+#2.1. Exercise with biomass estimation (time series) - Wmax as a proxy
+
+#Prepare the data
+# Convert weight estimates to data frame
+weight_df <- as.data.frame(weight_estimates)
+
+# Calculate total biomass per observation in md
+md$biomass_kg <- md$ABUNDANCE * weight_df$Estimated_Wmax_kg[match(md$valid_name, weight_df$Species)]
+
+#Time series analysis
+# Annual landings time series
+annual_landings <- md %>%
+  group_by(YEAR) %>%
+  summarise(
+    total_landings_kg = sum(biomass_kg, na.rm=TRUE),
+    n_observations = n()
+  )
+
+#Visualization
+# Plot annual landings
+landings_plot<-ggplot(annual_landings, aes(x=YEAR, y=total_landings_kg/1e6)) +
+  geom_line(linewidth=1) +
+  geom_point(size=2) +
+  labs(title="Total Estimated Landings by Year", 
+       y="Landings (million kg)", 
+       x="Year") +
+  theme_minimal()
+
+landings_plot
+
+# Save the plot as a .jpg
+ggsave("total_landings_by_year.jpg",landings_plot,dpi = 300)
+
+##Exercise with species richness (time series)
+
+#Annual species count
+annual <- md %>% 
+  group_by(YEAR) %>% 
+  summarise(n_species = n_distinct(valid_name))
+
+#Visualize
+sr_yr<-ggplot(annual, aes(YEAR, n_species)) + 
+  geom_line(color="steelblue") + 
+  geom_point() +
+  labs(title="Annual Species Richness", y="Number of Species")+
+  theme_minimal()
+
+sr_yr
+
+# Save the plot as a .jpg
+ggsave("annual_sr_by_year.jpg",sr_yr,dpi = 300)
+
+##Exercise with beta diversity (time series) -
+
+#Prepare Subset Data
+all_years <- sort(unique(md$YEAR))[1:length(unique(md$YEAR))]
+template <- nc_file_pp
+
+#Memory-Efficient Species Matrices
+yearly_matrices <- lapply(all_years, function(yr) {
+  cat("Processing year:", yr, "\n")
+  
+  # Create presence/absence matrix
+  md_yr <- md %>% 
+    filter(YEAR == yr) %>%
+    group_by(LONGITUDE, LATITUDE, valid_name) %>%
+    summarise(presence = 1, .groups = "drop")
+  
+  # Convert to wide format
+  mat <- md_yr %>%
+    pivot_wider(names_from = valid_name, 
+                values_from = presence,
+                values_fill = 0)
+  
+  return(mat)
+})
+names(yearly_matrices) <- all_years
+
+# 3. Calculate Beta Diversity (All Successive Year Pairs)
+beta_results <- data.frame(
+  year_pair = character(),
+  beta_mean = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (i in 1:(length(all_years)-1)) {
+  j <- i + 1
+  yr1 <- all_years[i]
+  yr2 <- all_years[j]
+
+  # Find common locations
+  common_locs <- inner_join(
+    yearly_matrices[[i]][,1:2],
+    yearly_matrices[[j]][,1:2],
+    by = c("LONGITUDE", "LATITUDE")
+  )
+
+  if (nrow(common_locs) > 0) {
+    # Get species matrices for common locations
+    mat1 <- yearly_matrices[[i]] %>%
+      semi_join(common_locs, by = c("LONGITUDE", "LATITUDE")) %>%
+      select(-LONGITUDE, -LATITUDE) %>%
+      as.matrix()
+
+    mat2 <- yearly_matrices[[j]] %>%
+      semi_join(common_locs, by = c("LONGITUDE", "LATITUDE")) %>%
+      select(-LONGITUDE, -LATITUDE) %>%
+      as.matrix()
+
+    # Ensure same species columns
+    common_spp <- intersect(colnames(mat1), colnames(mat2))
+    mat1 <- mat1[, common_spp, drop = FALSE]
+    mat2 <- mat2[, common_spp, drop = FALSE]
+
+    # Calculate beta diversity
+    beta_values <- sapply(1:nrow(mat1), function(k) {
+      vegdist(rbind(mat1[k,], mat2[k,]), method = "bray")
+    })
+
+    # Store results
+    beta_results <- rbind(beta_results, data.frame(
+      year_pair = paste(yr1, yr2, sep = "-"),
+      beta_mean = mean(beta_values, na.rm = TRUE)
+    ))
+  }
+}
+
+# 4. Visualize Results
+mean_bd_per_grid_annual<-ggplot(beta_results, aes(x = year_pair, y = beta_mean)) +
+  geom_col(fill = "steelblue")  +
+  labs(title = "Pairwise Beta Diversity",
+       x = "Year Pair",
+       y = "Mean Bray-Curtis Dissimilarity") +
+  ylim(0, 1) +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+mean_bd_per_grid_annual
+
+# Save the plot as a .jpg
+ggsave("annual_beta_by_year.jpg",mean_bd_per_grid_annual,dpi = 200)
+
+
+#### Chapter 3. Plot the change in species richness ####
+
+#Define the extent of the study area
+extent<-ext(points)
+#mapview(points)
+# Open the NetCDF file #einai ena aplo raster giati mas dini meses times
+# nc_file_terrain <- rast("layers/terrain_characteristics_6d78_4f59_9e1f_U1751549426217.nc")  # Replace with your file path
+# plot(nc_file_terrain,ext=extent)
+# 
+# nc_file_salinity <- rast("layers/so_baseline_2000_2019_depthsurf_a5c8_8d8a_48fb_U1751549402223.nc")  # Replace with your file path
+# plot(nc_file_salinity,ext=extent)
+# 
+# nc_file_ph<-rast("layers/ph_baseline_2000_2018_depthsurf_e6dc_c436_6a90_U1751549422645.nc")
+# plot(nc_file_ph,ext=extent)
+# 
+nc_file_pp<-rast("layers/phyc_baseline_2000_2020_depthsurf_7d39_02af_cdbd_U1751549420494.nc")
+plot(nc_file_pp,ext=extent)
+#nc_file_pp_cr<-crop(nc_file_pp,extent)
+#writeRaster(nc_file_pp_cr,"ocean_layer_cropped.tiff",overwrite=TRUE)
+
+
+#FOR COESSING25
+#nc_file_pp<-rast("ocean_layer_cropped.tiff")
+#plot(nc_file_pp)
+
+# 4. Add points to the plot
+#plot(points, add = TRUE, col = "red", pch = 16, cex = 1.2)
+
+# Create a consistent grid based on your raster resolution
+res <- res(nc_file_pp)[1]
+md <- md %>%
+  mutate(
+    grid_x = round(LONGITUDE/res)*res,
+    grid_y = round(LATITUDE/res)*res,
+    grid_id = paste(grid_x, grid_y, sep="_")
+  )
+
+annual_richness <- md %>%
+  group_by(grid_id, grid_x, grid_y, YEAR) %>%
+  summarize(
+    n_species = n_distinct(valid_name),
+    total_abundance = sum(ABUNDANCE),
+    .groups = "drop"
+  ) %>%
+  complete(grid_id, YEAR, fill = list(n_species = 0))  # Fill missing years with 0 species
+
+# Calculate change between first and last year for each grid
+change_metrics <- annual_richness %>%
+  group_by(grid_id, grid_x, grid_y) %>%
+  filter(YEAR %in% range(YEAR)) %>%  # Compare first and last year
+  arrange(YEAR) %>%
+  summarize(
+    first_year = first(YEAR),
+    last_year = last(YEAR),
+    initial_richness = first(n_species),
+    final_richness = last(n_species),
+    richness_change = final_richness - initial_richness,
+    percent_change = (final_richness - initial_richness)/initial_richness * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    change_category = case_when(
+      richness_change > 0 ~ "Increase (Δ>0)",
+      richness_change < 0 ~ "Decrease (Δ<0)",
+      TRUE ~ "No change (Δ=0)"
+    )
+  )
+
+change_metrics<-crop(change_metrics,extent)
+
+change_vect <- vect(change_metrics, geom = c("grid_x", "grid_y"), crs = crs(nc_file_pp))
+
+#add layer
+basemap <- ne_download(scale = "large", type="land",category="physical",returnclass = "sf")  # for countries
+
+# Create a template raster with your desired resolution and extent
+template <- rast(extent, resolution = 0.01) # Adjust resolution as needed
+
+# Rasterize the sf polygon
+basemap_rast <- rasterize(vect(basemap), template, field = 1, background = NA)
+
+# If 'extent' is a SpatExtent or bbox:
+basemap_cropped <- crop(basemap_rast, extent)
+
+# If 'extent' is an sf/sfc object:
+extent_vect <- vect(extent)
+basemap_cropped <- crop(basemap_rast, extent_vect)
+plot(basemap_cropped, col = "lightgray", legend = FALSE)
+
+#basemap to df
+basemap_df <- as.data.frame(basemap_cropped, xy = TRUE)
+
+
+ggplot() +geom_raster(data = basemap_df, 
+                      aes(x = x, y = y), 
+                      fill = "lightgray")+
+  geom_tile(data = change_metrics, 
+            aes(x = grid_x, y = grid_y, fill = change_category)) +
+  scale_fill_manual(values = c("Increase (Δ>0)" = "darkgreen", 
+                               "Decrease (Δ<0)" = "red", 
+                               "No change (Δ=0)" = "gray")) +
+  coord_equal() +
+  labs(title = "Species Richness Change Categories",
+       fill = "Change Category",x="Latitude",y="Longitude") +
+  theme_minimal()+ theme(
+    legend.key.height = unit(0.8, "cm"),      # Smaller legend keys
+    legend.key.width = unit(0.2, "cm"),       # Narrower legend
+    legend.title = element_text(size = 8),    # Smaller legend title
+    legend.text = element_text(size = 7),     # Smaller legend text
+    plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")  # Reduce margins
+  )
+
+animated_plot <- ggplot() +
+  # Add basemap first
+  geom_raster(data = basemap_df,aes(x = x, y = y), fill="lightgray") +
+  # Add your species richness tiles
+  geom_tile(data = annual_richness, 
+            aes(x = grid_x, y = grid_y, fill = n_species)) +
+  # Styling
+  theme_minimal() +
+  scale_fill_viridis_c(option = "plasma") +
+  # Animation
+  transition_time(YEAR) +
+  labs(title = 'Year: {frame_time}', 
+       fill = "Species Count",
+       x = "Longitude",
+       y = "Latitude") +
+  shadow_mark()+  coord_equal() +  theme_minimal()+ theme(
+    legend.key.height = unit(0.8, "cm"),      # Smaller legend keys
+    legend.key.width = unit(0.2, "cm"),       # Narrower legend
+    legend.title = element_text(size = 8),    # Smaller legend title
+    legend.text = element_text(size = 7),     # Smaller legend text
+    plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")  # Reduce margins
+  )
+
+anim<-animate(
+  animated_plot,
+  duration = 15,
+  width = 1000,       # Increase width (pixels)
+  height = 1000,
+  fps = 3,     # increase height in pixels
+  res = 150         # resolution in dpi (dots per inch)
+)
+
+# Save GIF file
+anim_save("species_richness_animation.gif", animation = anim)
+
+#### Chapter 4. Species richness - Spatial Analysis Saved Output ####
+
+#Save the species richness layers as spatial files to be used in GIS apps
+
+# Clean the input data
+annual_richness_clean <- annual_richness %>%
+  filter(!is.na(grid_x), !is.na(grid_y), n_species > 0)
+
+# Get the unique years
+years <- sort(unique(annual_richness_clean$YEAR))
+
+# Define raster extent and resolution
+xmin <- min(annual_richness_clean$grid_x)
+xmax <- max(annual_richness_clean$grid_x)
+ymin <- min(annual_richness_clean$grid_y)
+ymax <- max(annual_richness_clean$grid_y)
+res <- 0.1  # Adjust as needed
+
+# Create a raster template
+r_template <- rast(
+  xmin = xmin, xmax = xmax,
+  ymin = ymin, ymax = ymax,
+  resolution = res,
+  crs = "EPSG:4326"
+)
+
+# Initialize an empty list to store yearly layers
+r_layers <- list()
+
+# Loop through each year, rasterize, and store
+for (yr in years) {
+  df_year <- annual_richness_clean %>%
+    filter(YEAR == yr)
+  
+  pts <- vect(df_year, geom = c("grid_x", "grid_y"), crs = "EPSG:4326")
+  pts$n_species <- df_year$n_species
+  
+  r_year <- rasterize(pts, r_template, field = "n_species", fun = mean, background = NA)
+  names(r_year) <- paste0("Year_", yr)
+  
+  r_layers[[as.character(yr)]] <- r_year
+}
+
+# Combine into a single SpatRaster stack (multi-layer)
+r_stack <- rast(r_layers)
+
+# Check it
+r_stack
+
+# Save the raster stack as a multilayer GeoTIFF
+names(r_stack) <- paste0("Year_", years)
+writeRaster(r_stack, "annual_richness_raster_stack.tif", overwrite = TRUE)
+cat("✅ Saved raster stack as GeoTIFF: annual_richness_raster_stack.tif\n")
+

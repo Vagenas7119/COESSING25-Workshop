@@ -1,4 +1,4 @@
-# Aquatic Ecosystems :: Ecological & Spatial Data Analysis Lab  
+## Aquatic Ecosystems :: Ecological & Spatial Data Analysis Lab  
 
 **Author**: Georgios Vagenas (MNCN, CSIC) | Predoctoral Investigador & PhD(c) at the National Spanish Research Council (CSIC) 
 

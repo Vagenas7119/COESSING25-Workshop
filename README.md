@@ -69,6 +69,7 @@ results <- lapply(all_species$valid_name, function(species) {
   )
 })
 all_stats <- do.call(rbind, results)
+
 ```
 ## 3. Biomass estimation
 ```r
@@ -102,6 +103,7 @@ landings_plot <- ggplot(annual_landings, aes(x=YEAR, y=total_landings_kg/1e6)) +
   geom_line(linewidth=1) +
   labs(title="Total Estimated Landings by Year", y="Landings (million kg)")
   ```
+![total_landings_by_year](https://github.com/user-attachments/assets/9298283b-8365-47f7-8467-f1d98cf2fe47)
 
 ## 5. Spatial analysis
 ```r
@@ -123,6 +125,7 @@ animated_plot <- ggplot() +
 animate(animated_plot, width = 1000, height = 800, fps = 3, res = 150)
 anim_save("species_richness_animation.gif")
 ```
+![species_richness_animation](https://github.com/user-attachments/assets/60561c20-c595-46f6-890b-72436731c6bf)
 
 ## 6. Export results
 ```r

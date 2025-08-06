@@ -103,7 +103,7 @@ landings_plot <- ggplot(annual_landings, aes(x=YEAR, y=total_landings_kg/1e6)) +
   geom_line(linewidth=1) +
   labs(title="Total Estimated Landings by Year", y="Landings (million kg)")
   ```
-![total_landings_by_year](https://github.com/user-attachments/assets/9298283b-8365-47f7-8467-f1d98cf2fe47)
+![total](https://github.com/user-attachments/assets/e15144fd-3a7a-46ab-a772-d55446f717e2)
 
 ## 5. Spatial analysis
 ```r
@@ -125,7 +125,8 @@ animated_plot <- ggplot() +
 animate(animated_plot, width = 1000, height = 800, fps = 3, res = 150)
 anim_save("species_richness_animation.gif")
 ```
-![species_richness_animation](https://github.com/user-attachments/assets/60561c20-c595-46f6-890b-72436731c6bf)
+
+![Change](https://github.com/user-attachments/assets/c448934d-6cd1-42de-b3c3-e7bd365a285d)
 
 ## 6. Export results
 ```r
@@ -139,3 +140,4 @@ writeRaster(r_stack, "annual_richness_raster_stack.tif")
 write.csv(all_stats, "species_summary_stats.csv")
 write.csv(weight_estimates, "biomass_estimates.csv")
 ```
+![species_richness_animation](https://github.com/user-attachments/assets/96d838bc-6af9-408b-8064-281bf38968f4)
